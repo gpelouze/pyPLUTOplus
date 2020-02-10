@@ -416,13 +416,15 @@ class PlutoDataset():
         self.x3range = x3range
 
         self.pluto_ini = PlutoIni(self.ini_dir)
-        self.data_dir = os.path.join(
-            self.ini_dir,
-            self.pluto_ini['Static Grid Output'].get('output_dir'),
+        rel_data_dir = self.pluto_ini['Static Grid Output'].get('output_dir', '.')
+        self.data_dir = re.sub(
+            r'^\.(/|$)',
+            self.ini_dir + '/',
+            rel_data_dir,
             )
-
         # pyPLUTO crashes if passed w_dir option without trailing slash
-        self.data_dir += '/'
+        if not self.data_dir.endswith('/'):
+            self.data_dir += '/'
 
         self.last_ns = last_ns
         if self.last_ns is None:
