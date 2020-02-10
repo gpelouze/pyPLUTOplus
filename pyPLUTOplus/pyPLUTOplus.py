@@ -171,14 +171,14 @@ class PlutoDefinitions(dict):
 
     def _remove_comments(self, string):
         ''' Remove .h comments from string '''
-        string, _ = re.subn('//.*?\n', '\n', string)
-        string, _ = re.subn('/\*(.|\n)*?\*/', '', string)
+        string, _ = re.subn(r'//.*?\n', '\n', string)
+        string, _ = re.subn(r'/\*(.|\n)*?\*/', '', string)
         return string
 
     def _get_define_statements(self, string):
         ''' Parse `#define` statements from a .h string. '''
         define_statements = []
-        _define_re = re.compile('^\s*#define\s*(\w+)\s*(.*)')
+        _define_re = re.compile(r'^\s*#define\s*(\w+)\s*(.*)')
         for line in string.split('\n'):
             m = _define_re.match(line)
             if m:
@@ -205,10 +205,10 @@ class PlutoDefinitions(dict):
             tan=np.tan,
             )
         try:
-            value, _ = re.subn('CONST_', 'CONST.', value)
-            value, _ = re.subn('\^', '**.', value)
-            value, _ = re.subn('YES', 'True', value)
-            value, _ = re.subn('NO', 'False', value)
+            value, _ = re.subn(r'CONST_', 'CONST.', value)
+            value, _ = re.subn(r'\^', '**.', value)
+            value, _ = re.subn(r'YES', 'True', value)
+            value, _ = re.subn(r'NO', 'False', value)
             return eval(value, context_vars, dict())
         except Exception:
             return value
