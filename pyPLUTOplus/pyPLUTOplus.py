@@ -6,11 +6,13 @@ import re
 import numpy as np
 import pyPLUTO as pp
 
+
 class pload(pp.pload):
     ''' extend pyPLUTO.pload '''
     def get_var(self, varname):
         ''' Programmatically access a variable '''
         return self.__getattribute__(varname)
+
 
 class CONST():
     ''' PLUTO constants: CONST_* values as defined in pluto.h '''
@@ -41,6 +43,7 @@ class CONST():
     sigma  = 5.67051e-5         # Stephan Boltmann constant
     sigmaT = 6.6524e-25         # Thomson Cross section
 
+
 class _PlutoGridDimension():
     ''' Represent the grid along a given dimension (eg. X1-grid)
 
@@ -64,6 +67,7 @@ class _PlutoGridDimension():
         self.i = np.array(self.i)
         self.xL = np.array(self.xL)
         self.xR = np.array(self.xR)
+
 
 class PlutoGrid():
     ''' Represent the grid used for a simulation. '''
@@ -139,6 +143,7 @@ class PlutoGrid():
                     raise ValueError('unconsistent grid')
                 dim._to_array()
         return dimensions
+
 
 class PlutoDefinitions(dict):
     ''' Represent PLUTO `definitions.h` file.
@@ -278,6 +283,7 @@ class PlutoDefinitions(dict):
     def __repr__(self):
         return 'PlutoDefinitions({})'.format(super().__repr__())
 
+
 class PlutoUnits():
     ''' Code units as defined in `definitions.h`.
 
@@ -306,7 +312,6 @@ class PlutoUnits():
         self.UNIT_LENGTH = definitions.get_number('UNIT_LENGTH') # cm
         self.UNIT_VELOCITY = definitions.get_number('UNIT_VELOCITY') # cm s-1
 
-
     @property
     def density(self):
         ''' density in g cm-3 '''
@@ -322,11 +327,10 @@ class PlutoUnits():
         ''' velocity in cm s-1 '''
         return self.UNIT_VELOCITY
 
-
     @property
     def energy_density(self):
         ''' energy density in erg cm-2 '''
-        return self.UNIT_DENSITY * UNIT_VELOCITY**2
+        return self.UNIT_DENSITY * self.UNIT_VELOCITY**2
 
     @property
     def number_density(self):
@@ -353,17 +357,17 @@ class PlutoUnits():
         ''' time in s '''
         return self.UNIT_LENGTH / self.UNIT_VELOCITY
 
-
     def __repr__(self):
         s = ('PlutoUnits('
-            'length={length:.3g}, '
-            'velocity={velocity:.3g}, '
-            'density={density:.3g})')
+             'length={length:.3g}, '
+             'velocity={velocity:.3g}, '
+             'density={density:.3g})')
         s = s.format(
             length=self.length,
             velocity=self.velocity,
             density=self.density)
         return s
+
 
 class PlutoDataset():
     def __init__(self, w_dir=None, datatype=None, level=0,
@@ -390,11 +394,14 @@ class PlutoDataset():
         self.x2range = x2range
         self.x3range = x3range
 
-        self.w_dir += '/' # pyPLUTO crashes without trailing / in w_dir
+        # pyPLUTO crashes without trailing / in w_dir
+        self.w_dir += '/'
 
         self.last_ns = last_ns
         if self.last_ns is None:
-            nlast_info = pp.nlast_info(w_dir=self.w_dir, datatype=self.datatype)
+            nlast_info = pp.nlast_info(
+                w_dir=self.w_dir,
+                datatype=self.datatype)
             self.last_ns = nlast_info['nlast']
         self.ns_values = np.arange(0, self.last_ns+1)
 
@@ -440,23 +447,28 @@ class PlutoDataset():
     def get_var(self, varname):
         ''' Get array of a variable at all time steps '''
         return np.array([self.get_step(i).get_var(varname)
-                for i in self.ns_values])
+                         for i in self.ns_values])
 
     @property
     def Dt(self):
         return np.array([pds.Dt for pds in self._pload_datasets])
+
     @property
     def t(self):
         return np.array([pds.SimTime for pds in self._pload_datasets])
+
     @property
     def t_cgs(self):
         return self.t * self.units.time
+
     @property
     def x1(self):
         return self.get_step(0).get_var('x1')
+
     @property
     def x2(self):
         return self.get_step(0).get_var('x2')
+
     @property
     def x3(self):
         return self.get_step(0).get_var('x3')

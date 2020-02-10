@@ -44,6 +44,7 @@ import warnings
 
 import numpy as np
 
+
 class UniformGridSegment():
     def __init__(self, xL, xR, Δx):
         self.xL = xL
@@ -63,6 +64,7 @@ class UniformGridSegment():
                 f'{self.xL}, '
                 f'{self.xR}, '
                 f'{self.Δx})')
+
 
 class StretchedGridSegment():
     def __init__(self, xL, xR, ΔxL, ΔxR):
@@ -96,10 +98,11 @@ class StretchedGridSegment():
                 f'{self.ΔxL}, '
                 f'{self.ΔxR})')
 
+
 class Grid():
     def __init__(self, segments_def):
         '''
-        segments_def : 
+        segments_def : tuple
             tuple containing grid segment definitions in the format:
                 xL (u Δx|s)   [...]   x_end
         '''
@@ -164,7 +167,7 @@ class Grid():
         segments_defs = '  '.join([s.pluto_definition for s in self.segments])
         segments_count = len(self.segments)
         grid_xR = self.segments[-1].xR
-        pluto_def = f'X-grid {segments_count}  {segments_defs}  {grid_xR:0.1f}'
+        pluto_def = f'Xi-grid {segments_count} {segments_defs} {grid_xR:0.1f}'
         if len(pluto_def) > 127:
             warnings.warn('grid definition is longer than 127 characters. '
                           'This is not supported by PLUTO<=4.3.')
@@ -173,4 +176,3 @@ class Grid():
     def __repr__(self):
         segments_repr = ', '.join([repr(s) for s in self.segments])
         return f'{self.__class__.__name__}({segments_repr})'
-
