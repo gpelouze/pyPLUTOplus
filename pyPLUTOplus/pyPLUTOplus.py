@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import configparser
 import os
 import re
 
@@ -72,16 +73,16 @@ class _PlutoGridDimension():
 class PlutoGrid():
     ''' Represent the grid used for a simulation. '''
 
-    def __init__(self, w_dir):
+    def __init__(self, data_dir):
         ''' Parse and store the grid.
 
         Parameters
         ==========
-        w_dir : str
-            The PLUTO working directory, containing `grid.out`.
+        data_dir : str
+            The PLUTO data output directory, containing `grid.out`.
         '''
-        self.w_dir = w_dir
-        self._grid_out_fname = os.path.join(self.w_dir, 'grid.out')
+        self.data_dir = data_dir
+        self._grid_out_fname = os.path.join(self.data_dir, 'grid.out')
         self.dimensions = None
         self.geometry = None
         self.x1, self.x2, self.x3 = self._load_grid()
@@ -145,19 +146,35 @@ class PlutoGrid():
         return dimensions
 
 
+class PlutoIni(configparser.ConfigParser):
+    ''' Represent `pluto.ini` file. '''
+    def __init__(self, ini_dir):
+        ''' Parse and store `pluto.ini` file
+
+        Parameters
+        ==========
+        ini_dir : str
+            Directory containing a valid `pluto.ini`.
+        '''
+        self.ini_dir = ini_dir
+        self.pluto_ini = os.path.join(self.ini_dir, 'pluto.ini')
+        super().__init__(delimiters=(' ',))
+        self.read(self.pluto_ini)
+
+
 class PlutoDefinitions(dict):
     ''' Represent PLUTO `definitions.h` file.
     '''
-    def __init__(self, w_dir):
+    def __init__(self, ini_dir):
         ''' Parse and store PLUTO `definitions.h` file
 
         Parameters
         ==========
-        w_dir : str
-            The PLUTO working directory, containing `definitions.h`.
+        ini_dir : str
+            Directory containing a valid PLUTO `definitions.h`.
         '''
-        self.w_dir = w_dir
-        self.definitions_h = os.path.join(self.w_dir, 'definitions.h')
+        self.ini_dir = ini_dir
+        self.definitions_h = os.path.join(self.ini_dir, 'definitions.h')
         self.define_statements = self.load_define_statements()
         define_values = self._eval_define_statements(self.define_statements)
         super().__init__(define_values)
@@ -298,16 +315,16 @@ class PlutoUnits():
     >>> print(p.time) # prints UNIT_LENGTH / UNIT_VELOCITY in cgs
     '''
 
-    def __init__(self, w_dir):
-        ''' Parse and store the code units defined in `{w_dir}/definitions.h`.
+    def __init__(self, ini_dir):
+        ''' Parse and store the code units defined in `{ini_dir}/definitions.h`.
 
         Parameters
         ==========
-        w_dir : str
-            The PLUTO working directory, containing a valid `definitions.h`.
+        ini_dir : str
+            Directory containing a valid PLUTO `definitions.h`.
         '''
-        self.w_dir = w_dir
-        definitions = PlutoDefinitions(w_dir)
+        self.ini_dir = ini_dir
+        definitions = PlutoDefinitions(self.ini_dir)
         self.UNIT_DENSITY = definitions.get_number('UNIT_DENSITY') # g cm-3
         self.UNIT_LENGTH = definitions.get_number('UNIT_LENGTH') # cm
         self.UNIT_VELOCITY = definitions.get_number('UNIT_VELOCITY') # cm s-1
@@ -370,14 +387,18 @@ class PlutoUnits():
 
 
 class PlutoDataset():
-    def __init__(self, w_dir=None, datatype=None, level=0,
+    def __init__(self, ini_dir=None, datatype=None, level=0,
                  x1range=None, x2range=None, x3range=None,
                  last_ns=None, load_data=True):
         ''' Time series of PLUTO data
 
         Parameters
         ==========
-        w_dir, datatype, level, x1range, x2range, x3range :
+        ini_dir : str
+            Directory containing the pluto.ini and definition.h files.
+            (This is not necessarily the directory containing the output data,
+            i.e. output_dir defined in pluto.ini.)
+        datatype, level, x1range, x2range, x3range :
             Passed to pyPLUTO.pload and pyPLUTO.nlast_info.
             See pyPLUTO.pload documentation for more info.
         last_ns : int or None (default: None)
@@ -387,25 +408,31 @@ class PlutoDataset():
             If True, load the data during init
         '''
 
-        self.w_dir = w_dir
+        self.ini_dir = ini_dir
         self.datatype = datatype
         self.level = level
         self.x1range = x1range
         self.x2range = x2range
         self.x3range = x3range
 
-        # pyPLUTO crashes without trailing / in w_dir
-        self.w_dir += '/'
+        self.pluto_ini = PlutoIni(self.ini_dir)
+        self.data_dir = os.path.join(
+            self.ini_dir,
+            self.pluto_ini['Static Grid Output'].get('output_dir'),
+            )
+
+        # pyPLUTO crashes if passed w_dir option without trailing slash
+        self.data_dir += '/'
 
         self.last_ns = last_ns
         if self.last_ns is None:
             nlast_info = pp.nlast_info(
-                w_dir=self.w_dir,
+                w_dir=self.data_dir,
                 datatype=self.datatype)
             self.last_ns = nlast_info['nlast']
         self.ns_values = np.arange(0, self.last_ns+1)
 
-        self.units = PlutoUnits(self.w_dir)
+        self.units = PlutoUnits(self.ini_dir)
 
         self._pload_datasets = []
         if load_data:
@@ -421,7 +448,7 @@ class PlutoDataset():
         ''' Load datafile from step ns '''
         return pload(
             ns,
-            w_dir=self.w_dir,
+            w_dir=self.data_dir,
             datatype=self.datatype,
             level=self.level,
             x1range=self.x1range,
