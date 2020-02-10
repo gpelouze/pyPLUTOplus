@@ -30,13 +30,26 @@ Position [Mm]   Type        Resolution [km]
 ...     100,
 ...     ))
 >>> print('Pluto definition:', g.pluto_definition)
-    Pluto definition: X-grid 5  0.0 10 u  3.0 5 s  3.5 33 u  4.5 5 s  5.0 317 u  100.0
+    Pluto definition: Xi-grid 5  0.0 10 u  3.0 5 s  3.5 33 u  4.5 5 s  5.0 317 u  100.0
 >>> print('Number of points:', g.N)
     Number of points: 370
 
 Then add the contents of `g.pluto_definition` to the `[Grid]` block
 of your `pluto.ini`, after specifying the appropriate dimension number.
-Eg. `X-grid ...` → `X1-grid ...`.
+Eg. `Xi-grid ...` → `X1-grid ...`.
+
+
+Additional verifications
+========================
+
+Additional verifications are performed to ensure that the grid can be used by
+PLUTO (v4.3). Warnings are displayed when the following criteria are not met.
+
+- Ensure that the grid definitions is shorter than 128 characters.
+  Longer definitions are truncated by PLUTO.
+- For stretch segments, ensure that r <= 1.2. If r > 1.2, PLUTO will display
+  "WARNING:  alpha=%12.6e > 1.05" (sic! see `Src/set_grid.c:521`).
+  This tool displays a warning if r > 1.2 and if r < 1/1.2.
 
 '''
 
@@ -72,6 +85,12 @@ class StretchedGridSegment():
         self.xR = xR
         self.ΔxL = ΔxL
         self.ΔxR = ΔxR
+
+        r_limit = 1.2
+        if self.r > r_limit:
+            warnings.warn(f'r = {self.r:.2f} > {r_limit:.1f}')
+        if self.r < 1 / r_limit:
+            warnings.warn(f'r = {self.r:.2f} < {1 / r_limit:.1f}')
 
     @property
     def r(self):
