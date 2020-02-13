@@ -387,7 +387,7 @@ class PlutoUnits():
 
 
 class PlutoDataset():
-    def __init__(self, ini_dir=None, datatype=None, level=0,
+    def __init__(self, ini_dir, data_dir=None, datatype=None, level=0,
                  x1range=None, x2range=None, x3range=None,
                  last_ns=None, load_data=True):
         ''' Time series of PLUTO data
@@ -398,6 +398,9 @@ class PlutoDataset():
             Directory containing the pluto.ini and definition.h files.
             (This is not necessarily the directory containing the output data,
             i.e. output_dir defined in pluto.ini.)
+        data_dir : str or None
+            Directory containing PLUTO out and dbl files.
+            If None, it is read from pluto.ini.
         datatype, level, x1range, x2range, x3range :
             Passed to pyPLUTO.pload and pyPLUTO.nlast_info.
             See pyPLUTO.pload documentation for more info.
@@ -409,19 +412,24 @@ class PlutoDataset():
         '''
 
         self.ini_dir = ini_dir
+        self.data_dir = data_dir
         self.datatype = datatype
         self.level = level
         self.x1range = x1range
         self.x2range = x2range
         self.x3range = x3range
 
-        self.pluto_ini = PlutoIni(self.ini_dir)
-        rel_data_dir = self.pluto_ini['Static Grid Output'].get('output_dir', '.')
-        self.data_dir = re.sub(
-            r'^\.(/|$)',
-            self.ini_dir + '/',
-            rel_data_dir,
-            )
+        self.ini = PlutoIni(self.ini_dir)
+        if self.data_dir is None:
+            data_dir = self.ini['Static Grid Output'].get('output_dir', '.')
+            # Handle relative data dir definitions, eg.
+            # /foo/bar -> /foo/bar/
+            # ./foo/bar -> {self.ini_dir}/foo/bar/
+            self.data_dir = re.sub(
+                r'^\.(/|$)',
+                self.ini_dir + '/',
+                data_dir,
+                )
         # pyPLUTO crashes if passed w_dir option without trailing slash
         if not self.data_dir.endswith('/'):
             self.data_dir += '/'
