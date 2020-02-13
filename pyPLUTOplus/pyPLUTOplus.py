@@ -178,6 +178,7 @@ class PlutoDefinitions(dict):
         self.define_statements = self.load_define_statements()
         define_values = self._eval_define_statements(self.define_statements)
         super().__init__(define_values)
+        self._set_defaults()
 
     def load_define_statements(self):
         ''' Load the `#define` statements in `definitions.h`. '''
@@ -246,6 +247,18 @@ class PlutoDefinitions(dict):
             return val
         else:
             raise ValueError("'{}' is not a number".format(val))
+
+    def _set_defaults(self):
+        if 'H_MASS_FRAC' not in self:
+            self['H_MASS_FRAC'] = 0.7110
+        if 'He_MASS_FRAC' not in self:
+            if (not self['COOLING']) and (self['EOS'] == 'PVTE_LAW'):
+                self['He_MASS_FRAC'] = 1 - self['H_MASS_FRAC']
+            else:
+                self['He_MASS_FRAC'] = 0.2741
+        if 'Z_MASS_FRAC' not in self:
+            self['Z_MASS_FRAC'] = 1 - self['H_MASS_FRAC'] - self['He_MASS_FRAC']
+        return self
 
     def get_number(self, varname):
         ''' Get a variable it is a number, or raise ValueError.
