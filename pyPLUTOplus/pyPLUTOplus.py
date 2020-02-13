@@ -420,16 +420,18 @@ class PlutoDataset():
         self.x3range = x3range
 
         self.ini = PlutoIni(self.ini_dir)
+
+        # get data_dir from ini file
         if self.data_dir is None:
-            data_dir = self.ini['Static Grid Output'].get('output_dir', '.')
-            # Handle relative data dir definitions, eg.
-            # /foo/bar -> /foo/bar/
-            # ./foo/bar -> {self.ini_dir}/foo/bar/
-            self.data_dir = re.sub(
-                r'^\.(/|$)',
-                self.ini_dir + '/',
-                data_dir,
-                )
+            self.data_dir = self.ini['Static Grid Output'].get('output_dir', '.')
+        # Handle relative data dir definitions, eg.
+        # /foo/bar -> /foo/bar/
+        # ./foo/bar -> {self.ini_dir}/foo/bar/
+        self.data_dir = re.sub(
+            r'^\.(/|$)',
+            self.ini_dir + '/',
+            self.data_dir,
+            )
         # pyPLUTO crashes if passed w_dir option without trailing slash
         if not self.data_dir.endswith('/'):
             self.data_dir += '/'
