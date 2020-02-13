@@ -337,10 +337,31 @@ class PlutoUnits():
             Directory containing a valid PLUTO `definitions.h`.
         '''
         self.ini_dir = ini_dir
-        definitions = PlutoDefinitions(self.ini_dir)
-        self.UNIT_DENSITY = definitions.get_number('UNIT_DENSITY') # g cm-3
-        self.UNIT_LENGTH = definitions.get_number('UNIT_LENGTH') # cm
-        self.UNIT_VELOCITY = definitions.get_number('UNIT_VELOCITY') # cm s-1
+        self._defs = PlutoDefinitions(self.ini_dir)
+        self.UNIT_DENSITY = self._defs.get_number('UNIT_DENSITY') # g cm-3
+        self.UNIT_LENGTH = self._defs.get_number('UNIT_LENGTH') # cm
+        self.UNIT_VELOCITY = self._defs.get_number('UNIT_VELOCITY') # cm s-1
+
+    @property
+    def _MU(self):
+        ''' Mean molecular weight computed as in PLUTO's MeanMolecularWeight
+        function (Src/mean_mol_weight.c).
+
+        Only COOLING == NO or TABULATED are supported.
+        '''
+        cooling = self._defs.get('COOLING')
+        if cooling in (False, 'TABULATED'):
+            H_MASS_FRAC = self._defs.get_number('H_MASS_FRAC')
+            He_MASS_FRAC = self._defs.get_number('He_MASS_FRAC')
+            Z_MASS_FRAC = self._defs.get_number('Z_MASS_FRAC')
+            FRAC_He = (He_MASS_FRAC/CONST.AHe*CONST.AH/H_MASS_FRAC)
+            FRAC_Z = (Z_MASS_FRAC /CONST.AZ *CONST.AH/H_MASS_FRAC)
+            return ((CONST.AH + FRAC_He*CONST.AHe + FRAC_Z*CONST.AZ) /
+                    (2.0 + FRAC_He + FRAC_Z*(1.0 + CONST.AZ*0.5)))
+
+        else:
+            raise ValueError(f"Can't compute mu for {cooling} cooling.")
+
 
     @property
     def density(self):
@@ -381,6 +402,11 @@ class PlutoUnits():
     def pressure(self):
         ''' pressure in dyn cm-2 '''
         return self.UNIT_DENSITY * self.UNIT_VELOCITY**2
+
+    @property
+    def temperature(self):
+        ''' temperature in K '''
+        return self.UNIT_VELOCITY**2*CONST.amu/CONST.kB * self._MU
 
     @property
     def time(self):
