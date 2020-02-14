@@ -458,6 +458,10 @@ class PlutoDataset():
         self.x2range = x2range
         self.x3range = x3range
 
+        if not os.path.isdir(self.ini_dir):
+            raise NotADirectoryError(
+                f'Ini dir is not a directory: {self.ini_dir}')
+
         self.ini = PlutoIni(self.ini_dir)
 
         # get data_dir from ini file
@@ -474,6 +478,9 @@ class PlutoDataset():
         # pyPLUTO crashes if passed w_dir option without trailing slash
         if not self.data_dir.endswith('/'):
             self.data_dir += '/'
+        if not os.path.isdir(self.data_dir):
+            raise NotADirectoryError(
+                f'Data dir is not a directory: {self.data_dir}')
 
         self.last_ns = last_ns
         if self.last_ns is None:
