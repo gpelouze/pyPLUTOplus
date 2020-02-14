@@ -406,7 +406,7 @@ class PlutoUnits():
     @property
     def temperature(self):
         ''' temperature in K '''
-        return self.UNIT_VELOCITY**2*CONST.amu/CONST.kB * self._MU
+        return self.UNIT_VELOCITY**2*CONST.amu/CONST.kB
 
     @property
     def time(self):
