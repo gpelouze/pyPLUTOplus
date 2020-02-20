@@ -69,6 +69,14 @@ class UniformGridSegment():
         return int(np.round((self.xR - self.xL) / self.Δx))
 
     @property
+    def Δx_arr(self):
+        return np.full(self.N, self.Δx)
+
+    @property
+    def x(self):
+        return self.xL - self.Δx / 2 + np.cumsum(self.Δx_arr)
+
+    @property
     def pluto_definition(self):
         return f'{self.xL:0.1f} {self.N} u'
 
@@ -105,6 +113,17 @@ class StretchedGridSegment():
     def N(self):
         return int(np.round(
             np.log(self.r + self.C*self.r - self.C) / np.log(self.r) - 1))
+
+    @property
+    def Δx_arr(self):
+        Δx_values = np.array([self.ΔxL * self.r**(i) for i in range(self.N+1)])
+        return (Δx_values[1:] + Δx_values[:-1]) / 2
+
+    @property
+    def x(self):
+        x = self.xL - self.ΔxL / 2 + np.cumsum(self.Δx_arr)
+        # return (x[1:] + x[:-1]) / 2
+        return x
 
     @property
     def pluto_definition(self):
@@ -180,6 +199,14 @@ class Grid():
     @property
     def N(self):
         return sum([s.N for s in self.segments])
+
+    @property
+    def Δx_arr(self):
+        return np.hstack([s.Δx_arr for s in self.segments])
+
+    @property
+    def x(self):
+        return np.hstack([s.x for s in self.segments])
 
     @property
     def pluto_definition(self):
