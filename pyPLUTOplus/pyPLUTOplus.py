@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import configparser
+import datetime
 import os
 import re
 
@@ -71,6 +72,11 @@ class PlutoGridDimension():
     def x(self):
         ''' Coordinates of the center of each cell. '''
         return (self.xL + self.xR) / 2
+
+    def iter_cells(self):
+        ''' Returns an iterator which yields the indice and the left, center,
+        and right coordinate of each grid cell. '''
+        return zip(self.i, self.xL, self.x, self.xR)
 
     def __repr__(self):
         return f'PlutoGridDimension({self.x})'
@@ -169,6 +175,10 @@ class PlutoGrid():
                 assert np.all(np.isfinite(xR))
             return PlutoGridDimension(xL, xR)
 
+    def write_to(self, filename):
+        writer = PlutoGridWriter()
+        writer.write_to(self, filename)
+
     def __repr__(self):
         repr_string = 'PLUTO grid:\n'
         repr_string += f'# DIMENSIONS: {self.n_dimensions:d}\n'
@@ -251,6 +261,32 @@ class PlutoGridReader():
                       for builder in dimension_builders]
         grid = PlutoGrid(n_dimensions, geometry_name, *dimensions)
         return grid
+
+
+class PlutoGridWriter():
+    ''' Write a grid.out file '''
+    def to_string(self, grid):
+        now = datetime.datetime.now()
+        string = ('# ******************************************************\n'
+                  '# PLUTO 4.3 Grid File\n'
+                  f'# Generated on  {now:%a %b %d %H:%M:%S %Y}\n'
+                  '# \n'
+                  )
+        string += f'# DIMENSIONS: {grid.n_dimensions:d}\n'
+        string += f'# GEOMETRY:   {grid.geometry.upper()}\n'
+        for i, dim in enumerate(grid.active_dimensions):
+            string += (f'# X{i+1}: [ {dim.xL[0]:.6f},  {dim.xR[-1]:.6f}], '
+                       f'{dim.N:d} point(s), {dim.n_ghosts:d} ghosts\n')
+        string += '# ******************************************************\n'
+        for dim in grid.all_dimensions:
+            string += f'{dim.N:d} \n'
+            for i, xL, x, xR in dim.iter_cells():
+                string += f' {i+1:d}   {xL:.12e}    {xR:.12e}\n'
+        return string
+
+    def write_to(self, grid, filename):
+        with open(filename, 'w') as f:
+            f.write(self.to_string(grid))
 
 
 class PlutoIni(configparser.ConfigParser):
