@@ -45,10 +45,41 @@ class CONST():
     sigmaT = 6.6524e-25         # Thomson Cross section
 
 
-class _PlutoGridDimension():
-    ''' Represent the grid along a given dimension (eg. X1-grid)
+class PlutoGridDimension():
+    ''' Represent the grid along a given dimension (eg. X1-grid) '''
+    def __init__(self, xL, xR, n_ghosts=0):
+        ''' Initialize the grid dimension
 
-    This is a dependency of `PlutoGrid` that shouldn't be used directly.
+        Parameters
+        ==========
+        xL : 1D array of shape (n,)
+            Coordinates of the left side of each cell.
+        xR : 1D array of shape (n,)
+            Coordinates of the left side of each cell.
+        n_ghosts : int (default: 0)
+            Number of ghost points.
+        '''
+        if len(xL) != len(xR):
+            raise ValueError('xL and xR must have the same length')
+        self.N = len(xL)
+        self.i = np.arange(self.N)
+        self.xL = xL
+        self.xR = xR
+        self.n_ghosts = n_ghosts
+
+    @property
+    def x(self):
+        ''' Coordinates of the center of each cell. '''
+        return (self.xL + self.xR) / 2
+
+    def __repr__(self):
+        return f'PlutoGridDimension({self.x})'
+
+
+class _PlutoGridDimensionBuilder():
+    ''' Helper class to build a PlutoGridDimension.
+
+    This is a dependency of `PlutoGridReader` that shouldn't be used directly.
     '''
     def __init__(self, n_points):
         self.N = n_points
@@ -56,22 +87,100 @@ class _PlutoGridDimension():
         self.xL = []
         self.xR = []
 
-    def _is_consistent(self):
-        return len(self.i) == len(self.xL) == len(self.xR) == self.N
-
-    def _append(self, i, xL, xR):
+    def append(self, i, xL, xR):
         self.i.append(i)
         self.xL.append(xL)
         self.xR.append(xR)
 
-    def _to_array(self):
-        self.i = np.array(self.i)
-        self.xL = np.array(self.xL)
-        self.xR = np.array(self.xR)
+    def check_consistency(self):
+        if not (len(self.i) == len(self.xL) == len(self.xR) == self.N):
+            raise ValueError('unconsistent grid sizes')
+        if not np.all(np.array(self.i) == np.arange(self.N) + 1):
+            raise ValueError('uneven grid indices')
+
+    def to_PlutoGridDimension(self):
+        self.check_consistency()
+        return PlutoGridDimension(np.array(self.xL), np.array(self.xR))
 
 
 class PlutoGrid():
     ''' Represent the grid used for a simulation. '''
+
+    _supported_dimensions = (1, 2, 3)
+    _supported_geometries = ('cartesian', 'cylindrical', 'spherical', 'polar')
+
+    def __init__(self, n_dimensions, geometry, x1, x2, x3):
+        ''' Create a new PlutoGrid
+
+        Parameters
+        ==========
+        n_dimensions : int
+            The number of dimensions (1, 2, or 3).
+        geometry : str
+            The geometry of the simulation ('cartesian', 'cylindrical',
+            'spherical', or 'polar').
+        x1, x2, x2 : PlutoGridDimension, 1D array, or None
+            The coordinates along each dimension.
+            - If passed a PlutoGridDimension, it is used directly.
+            - If passed an array, it is assumed to contain the coordinate of
+              the center of each grid points.
+            - Pass None for inactive dimensions.
+        '''
+        if n_dimensions not in self._supported_dimensions:
+            raise ValueError(f'unsupported n_dimension value: {n_dimensions}')
+        if geometry not in self._supported_geometries:
+            raise ValueError(f'unsupported geometry: {geometry}')
+        self.n_dimensions = n_dimensions
+        self.geometry = geometry
+        self.x1 = self._init_dimension(x1)
+        self.x2 = self._init_dimension(x2)
+        self.x3 = self._init_dimension(x3)
+
+    @property
+    def active_dimensions(self):
+        if self.n_dimensions == 1:
+            return (self.x1, )
+        if self.n_dimensions == 2:
+            return (self.x1, self.x2)
+        if self.n_dimensions == 3:
+            return (self.x1, self.x2, self.x3)
+
+    @property
+    def all_dimensions(self):
+        return self.x1, self.x2, self.x3
+
+    def _init_dimension(self, x):
+        if isinstance(x, PlutoGridDimension):
+            return x
+        else:
+            if x is None:
+                xL = np.array([0])
+                xR = np.array([1])
+            else:
+                x_face = (x[1:] + x[:-1]) / 2
+                dx = x[1:] - x[:-1]
+                xL = np.full_like(x, np.nan)
+                xL[1:] = x_face
+                xL[0] = x_face[0] - dx[0]
+                xR = np.full_like(x, np.nan)
+                xR[:-1] = x_face
+                xR[-1] = x_face[-1] + dx[-1]
+                assert np.all(np.isfinite(xL))
+                assert np.all(np.isfinite(xR))
+            return PlutoGridDimension(xL, xR)
+
+    def __repr__(self):
+        repr_string = 'PLUTO grid:\n'
+        repr_string += f'# DIMENSIONS: {self.n_dimensions:d}\n'
+        repr_string += f'# GEOMETRY: {self.geometry}\n'
+        for i, dim in enumerate(self.active_dimensions):
+            repr_string += (f'# X{i+1}: [ {dim.xL[0]:.6f},  {dim.xR[-1]:.6f}], '
+                            f'{dim.N:d} point(s), {dim.n_ghosts:d} ghosts')
+        return repr_string
+
+
+class PlutoGridReader():
+    ''' Read a PLUTO grid.out file. '''
 
     def __init__(self, data_dir):
         ''' Parse and store the grid.
@@ -83,17 +192,14 @@ class PlutoGrid():
         '''
         self.data_dir = data_dir
         self._grid_out_fname = os.path.join(self.data_dir, 'grid.out')
-        self.dimensions = None
-        self.geometry = None
-        self.x1, self.x2, self.x3 = self._load_grid()
 
     def _raise_parse_line_error(self, line):
         msg = 'unexpected line in grid file: {}'.format(line)
         raise ValueError(msg)
 
-    def _load_grid(self):
-        dimensions = []
-        current_dimension = None
+    def read(self):
+        dimension_builders = []
+        current_dimension_builder = None
         with open(self._grid_out_fname, 'r') as f:
             for line in f.readlines():
                 line = line.strip()
@@ -104,14 +210,14 @@ class PlutoGrid():
                         ''' likely 'DIMENSIONS: (int)' '''
                         try:
                             _, ndim = line.split(':')
-                            self.dimensions = int(ndim)
+                            n_dimensions = int(ndim)
                         except (TypeError, ValueError):
                             self._raise_parse_line_error(line)
                     if line.lower().startswith('geometry'):
                         ''' likely 'GEOMETRY: (str)' '''
                         try:
                             _, geometry = line.split(':')
-                            self.geometry = geometry.lower().strip()
+                            geometry_name = geometry.lower().strip()
                         except (TypeError, ValueError):
                             self._raise_parse_line_error(line)
                 elif len(line.split()) == 1:
@@ -122,8 +228,8 @@ class PlutoGrid():
                         n_points = int(line)
                     except ValueError:
                         self._raise_parse_line_error(line)
-                    current_dimension = _PlutoGridDimension(n_points)
-                    dimensions.append(current_dimension)
+                    current_dimension_builder = _PlutoGridDimensionBuilder(n_points)
+                    dimension_builders.append(current_dimension_builder)
                 elif len(line.split()) == 3:
                     ''' Likely (i, xR, xL) triplet for the current dimension
                     '''
@@ -134,16 +240,17 @@ class PlutoGrid():
                         xR = float(xR)
                     except ValueError:
                         self._raise_parse_line_error(line)
-                    current_dimension._append(i, xL, xR)
+                    current_dimension_builder.append(i, xL, xR)
                 else:
                     self._raise_parse_line_error(line)
-            if len(dimensions) != 3:
-                raise ValueError('invalid number of dimensions')
-            for dim in dimensions:
-                if not dim._is_consistent():
-                    raise ValueError('unconsistent grid')
-                dim._to_array()
-        return dimensions
+        if len(dimension_builders) != 3:
+            raise ValueError('invalid number of dimensions')
+        for builder in dimension_builders:
+            builder.to_PlutoGridDimension()
+        dimensions = [builder.to_PlutoGridDimension()
+                      for builder in dimension_builders]
+        grid = PlutoGrid(n_dimensions, geometry_name, *dimensions)
+        return grid
 
 
 class PlutoIni(configparser.ConfigParser):
