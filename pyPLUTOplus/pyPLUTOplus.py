@@ -714,3 +714,51 @@ class PlutoDataset():
             return self.get_step(item)
         else:
             raise ValueError('invalid item type')
+
+
+class DblVarFile():
+    ''' Represent a `dbl.out` file. '''
+    def __init__(self, t, Dt, nstep, var_names,
+                 file_type='single_file',
+                 endianness='little'):
+        ''' Initialize a dbl var file
+
+        Parameters
+        ==========
+        t : array of shape (n,)
+            Time of each snapshot.
+        Dt : array of shape (n,)
+            Timestep of each snapshot.
+        nstep : array of shape (n,)
+            Integration step of each snapshot.
+        var_names : list of str
+            Ordered list of the variable names.
+        file_type : str (default: 'single_file')
+            Whether variables are written to a single file ('single_file') or
+            to multiple files ('multiple_files').
+        endianness : str (default: 'little')
+            Endianness of the dbl file ('little' or 'big').
+        '''
+        if not (len(t) == len(Dt) == len(nstep)):
+            raise ValueError('t, Dt, and nstep must have the same shape')
+
+        self.t = t
+        self.Dt = Dt
+        self.nstep = nstep
+        self.var_names = var_names
+        self.file_type = file_type
+        self.endianness = endianness
+
+    def to_string(self):
+        var_names_str = ' '.join(self.var_names)
+        string = ''
+        for i, (t, Dt, nstep) in enumerate(zip(self.t, self.Dt, self.nstep)):
+            string += (
+                f'{i:d} {t:.6e} {Dt:.6e} {nstep:d} '
+                f'{self.file_type} {self.endianness} {var_names_str} \n'
+                )
+        return string
+
+    def write_to(self, filename):
+        with open(filename, 'w') as f:
+            f.write(self.to_string())
