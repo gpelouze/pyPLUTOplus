@@ -606,6 +606,8 @@ class PlutoDataset():
                 f'Ini dir is not a directory: {self.ini_dir}')
 
         self.ini = PlutoIni(self.ini_dir)
+        self.units = PlutoUnits(self.ini_dir)
+        self.definitions = PlutoDefinitions(self.ini_dir)
 
         # get data_dir from ini file
         if self.data_dir is None:
@@ -632,8 +634,6 @@ class PlutoDataset():
                 datatype=self.datatype)
             self.last_ns = nlast_info['nlast']
         self.ns_values = np.arange(0, self.last_ns+1)
-
-        self.units = PlutoUnits(self.ini_dir)
 
         self._pload_datasets = []
         if load_data:
