@@ -134,6 +134,7 @@ class PlutoGrid():
         '''
         if n_dimensions not in self._supported_dimensions:
             raise ValueError(f'unsupported n_dimension value: {n_dimensions}')
+        geometry = geometry.lower()
         if geometry not in self._supported_geometries:
             raise ValueError(f'unsupported geometry: {geometry}')
         self.n_dimensions = n_dimensions
@@ -160,8 +161,13 @@ class PlutoGrid():
             return x
         else:
             if x is None:
+                # assume one cell of size 1 centered on 0.5
                 xL = np.array([0])
                 xR = np.array([1])
+            elif len(x) == 1:
+                # assume a cell of size 1 centered on x[0]
+                xL = np.array([x[0] - .5])
+                xR = np.array([x[0] + .5])
             else:
                 x_face = (x[1:] + x[:-1]) / 2
                 dx = x[1:] - x[:-1]
@@ -762,3 +768,76 @@ class DblVarFile():
     def write_to(self, filename):
         with open(filename, 'w') as f:
             f.write(self.to_string())
+
+
+class DblWriter():
+    ''' Rudimentary .dbl files writer '''
+
+    def write_to(self, dataset, data_dir,
+                 file_type='single_file'):
+
+        if file_type not in ('single_file', 'multiple_files'):
+            raise ValueError(f'unsupported file_type value: {file_type}')
+
+        if not os.path.isdir(data_dir):
+            os.mkdir(data_dir)
+
+        var_file = DblVarFile(
+            dataset.t,
+            dataset.Dt,
+            dataset.ns_values,
+            dataset.vars,
+            file_type=file_type,
+            endianness='little',
+            )
+        var_file.write_to(f'{data_dir}/dbl.out')
+
+        grid = PlutoGrid(
+            dataset.definitions['DIMENSIONS'],
+            dataset.definitions['GEOMETRY'],
+            dataset.x1,
+            dataset.x2,
+            dataset.x3,
+            )
+        grid.write_to(f'{data_dir}/grid.out')
+
+        for ns in dataset.ns_values:
+            data = self.get_step_data(dataset, ns)
+            if file_type == 'single_file':
+                filename = f'{data_dir}/data.{ns:04d}.dbl'
+                data = np.array(data)
+                self.write_array(data, filename)
+            elif file_type == 'multiple_files':
+                for nv, varname in enumerate(dataset.vars):
+                    filename = f'{data_dir}/{varname}.{ns:04d}.dbl'
+                    var_data = data[nv]
+                    self.write_array(var_data, filename)
+
+    def get_step_data(self, dataset, ns):
+        ''' Get the data for a given step of the dataset.
+
+        Parameters
+        ==========
+        dataset : PlutoDataset
+            The dataset
+        ns : int
+            The index of the step from which to retrieve the data.
+        '''
+        step_dataset = dataset.get_step(ns)
+        data = [step_dataset.get_var(var) for var in step_dataset.vars]
+        return data
+
+    def write_array(self, array, filename):
+        ''' Write a numpy array to a binary file.
+
+        Parameters
+        ==========
+        array : ndarray
+            The array to write
+        filename : str
+            Name of the file where to write the data
+        '''
+        # cast to little-endian float64, ie. double precision
+        array = array.astype('<f8')
+        print('Writing Data file :', filename)
+        array.tofile(filename)
