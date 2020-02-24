@@ -718,7 +718,7 @@ class PlutoDataset():
 
 class DblVarFile():
     ''' Represent a `dbl.out` file. '''
-    def __init__(self, t, Dt, nstep, var_names,
+    def __init__(self, t, Dt, ns_values, var_names,
                  file_type='single_file',
                  endianness='little'):
         ''' Initialize a dbl var file
@@ -729,7 +729,7 @@ class DblVarFile():
             Time of each snapshot.
         Dt : array of shape (n,)
             Timestep of each snapshot.
-        nstep : array of shape (n,)
+        ns_values : array of shape (n,)
             Integration step of each snapshot.
         var_names : list of str
             Ordered list of the variable names.
@@ -739,12 +739,12 @@ class DblVarFile():
         endianness : str (default: 'little')
             Endianness of the dbl file ('little' or 'big').
         '''
-        if not (len(t) == len(Dt) == len(nstep)):
-            raise ValueError('t, Dt, and nstep must have the same shape')
+        if not (len(t) == len(Dt) == len(ns_values)):
+            raise ValueError('t, Dt, and ns_values must have the same shape')
 
         self.t = t
         self.Dt = Dt
-        self.nstep = nstep
+        self.ns_values = ns_values
         self.var_names = var_names
         self.file_type = file_type
         self.endianness = endianness
@@ -752,9 +752,9 @@ class DblVarFile():
     def to_string(self):
         var_names_str = ' '.join(self.var_names)
         string = ''
-        for i, (t, Dt, nstep) in enumerate(zip(self.t, self.Dt, self.nstep)):
+        for i, (t, Dt, ns) in enumerate(zip(self.t, self.Dt, self.ns_values)):
             string += (
-                f'{i:d} {t:.6e} {Dt:.6e} {nstep:d} '
+                f'{i:d} {t:.6e} {Dt:.6e} {ns:d} '
                 f'{self.file_type} {self.endianness} {var_names_str} \n'
                 )
         return string
