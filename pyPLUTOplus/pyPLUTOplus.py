@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections import OrderedDict
 import configparser
 import datetime
 import os
@@ -726,6 +727,136 @@ class PlutoDataset():
             return self.get_step(item)
         else:
             raise ValueError('invalid item type')
+
+
+class DblDefinitions(dict):
+    ''' Simplified clone of PlutoDefinitions to be used by DblDataset. '''
+    def __init__(self, dimensions, geometry):
+        define_values = {
+            'DIMENSIONS': dimensions,
+            'GEOMETRY': geometry.upper(),
+            }
+        super().__init__(define_values)
+
+
+class DblStepData():
+    ''' Time step of a DblDataset '''
+    def __init__(self, data, coordinates, SimTime, Dt=np.nan):
+        ''' Create a new dbl time step
+
+        Parameters
+        ===========
+        data : dict of array
+            Dictionary where keys are the variable names and values are arrays
+            of the same shape containing the values of the corresponding
+            variable in the simulation domain for the given snapshot.
+        coordinates : tuple of 1D arrays
+            A tuple of 1D arrays giving the coordinates along each active
+            dimension.
+        SimTime : float
+            Simulation time for the snapshot.
+        Dt : float or None
+            Integration time step for the snapshot.
+        '''
+        self.Dt = Dt
+        self.SimTime = SimTime
+        # Append inactive dimensions to coordinates until the total number of
+        # spatial coordinates is 3.
+        # Inactive dimension coordinates are a single cell of size 1 centered
+        # on 0.5.
+        inactive_dimension_coordinate = np.array([0.5])
+        coordinates = list(coordinates)  # convert from tuple
+        while len(coordinates) < 3:
+            coordinates.append(inactive_dimension_coordinate)
+        self.x1, self.x2, self.x3 = coordinates
+
+        for var_name, arr in data.items():
+            self.__setattr__(var_name, arr)
+
+        self.vars = list(data.keys())
+
+    def get_var(self, varname):
+        ''' Programmatically access a variable '''
+        return self.__getattribute__(varname)
+
+
+class DblDataset(PlutoDataset):
+    ''' Dataset that can be written to a dbl file '''
+    def __init__(self, data, coordinates, n_dimensions, geometry, Dt=None):
+        ''' Create a new dbl dataset
+
+        Parameters
+        ==========
+        data : dict of arrays
+            Dictionary where keys are the variable names and values are arrays
+            of dimension (1 + n_dimensions), where the first axis is time and
+            the following are spatial dimensions. All arrays must have the same
+            shape.
+        coordinates : tuple of 1D arrays
+            A tuple of 1D arrays giving time and the coordinates along each
+            active dimension.
+            Must contain (1 + n_dimensions) arrays.
+        n_dimensions : int (1, 2, or 3)
+            Number of dimensions in the simulation.
+        geometry : str
+            Geometry of the simulation ('cartesian', 'cylindrical',
+            'spherical', or 'polar').
+        Dt : 1D array or None (default: None)
+            Integration time step at each snapshot. Same shape as
+            coordinates[0] (time).
+            If None, set to NaN values.
+        '''
+
+        self._ensure_consistency(data, coordinates, n_dimensions)
+
+        sample_arr = list(data.values())[0]
+        nt, *spatial_shape = sample_arr.shape
+        self.ns_values = np.arange(nt)
+        self.last_ns = self.ns_values[-1]
+
+        self.definitions = DblDefinitions(n_dimensions, geometry)
+
+        self._step_data = []
+        time_cordinates = coordinates[0]
+        spatial_coordinates = coordinates[1:]
+        if Dt is None:
+            Dt = np.full_like(time_cordinates, np.nan)
+        for ns in self.ns_values:
+            this_data = OrderedDict([
+                (var_name, arr[ns]) for var_name, arr in data.items()])
+            step_data = DblStepData(
+                this_data,
+                spatial_coordinates,
+                time_cordinates[ns],
+                Dt=Dt[ns],
+                )
+            self._step_data.append(step_data)
+
+        self._update_vars()  # sets self.vars from self._step_data
+
+    def _ensure_consistency(self, data, coordinates, n_dimensions):
+        ''' Raise ValueError if n_dimensions, the number and shape of
+        coordinates, and the shape of data are inconsistent. '''
+        # ensure there are as many coordinates as dimensions and time
+        if len(coordinates) != n_dimensions + 1:
+            msg = (f'invalid number of coordinates: '
+                   f'expected {n_dimensions}, got {len(coordinates)}')
+            raise ValueError(msg)
+        # ensure that the shape of each array in data matches that of the
+        # coordinates
+        expected_shape = tuple(len(coord) for coord in coordinates)
+        for var_name, arr in data.items():
+            if arr.shape != expected_shape:
+                msg = (f'invalid shape for {var_name}: '
+                       f'expected {expected_shape}, got {arr.shape}')
+                raise ValueError(msg)
+
+    def set_data(self):
+        pass
+
+    def create_step_data(self):
+        step_data = DblStepData()
+        return step_data
 
 
 class DblVarFile():
