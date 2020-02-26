@@ -647,14 +647,14 @@ class PlutoDataset():
             self.last_ns = nlast_info['nlast']
         self.ns_values = np.arange(0, self.last_ns+1)
 
-        self._pload_datasets = []
+        self._step_data= []
         if load_data:
             self.load_data()
 
     def load_data(self):
         ''' Load datafiles for all steps '''
         for ns in self.ns_values:
-            self._pload_datasets.append(self.load_step_data(ns))
+            self._step_data.append(self.load_step_data(ns))
         self._update_vars()
 
     def load_step_data(self, ns):
@@ -675,14 +675,14 @@ class PlutoDataset():
         The list of var names is the union of the var names from all step files
         '''
         self.vars = set()
-        for pds in self._pload_datasets:
-            for v in pds.vars:
+        for this_step_data in self._step_data:
+            for v in this_step_data.vars:
                 self.vars.add(v)
         self.vars = list(self.vars)
 
     def get_step(self, i):
         ''' Get pyPLUTO pload object for step i '''
-        return self._pload_datasets[i]
+        return self._step_data[i]
 
     def get_var(self, varname):
         ''' Get array of a variable at all time steps '''
@@ -691,11 +691,11 @@ class PlutoDataset():
 
     @property
     def Dt(self):
-        return np.array([pds.Dt for pds in self._pload_datasets])
+        return np.array([sd.Dt for sd in self._step_data])
 
     @property
     def t(self):
-        return np.array([pds.SimTime for pds in self._pload_datasets])
+        return np.array([sd.SimTime for sd in self._step_data])
 
     @property
     def t_cgs(self):
@@ -703,15 +703,15 @@ class PlutoDataset():
 
     @property
     def x1(self):
-        return self.get_step(0).get_var('x1')
+        return self.get_step(0).x1
 
     @property
     def x2(self):
-        return self.get_step(0).get_var('x2')
+        return self.get_step(0).x2
 
     @property
     def x3(self):
-        return self.get_step(0).get_var('x3')
+        return self.get_step(0).x3
 
     def __getitem__(self, item):
         ''' Access step or var
