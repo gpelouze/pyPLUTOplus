@@ -182,6 +182,8 @@ class PlutoGrid():
             return PlutoGridDimension(xL, xR)
 
     def write_to(self, filename):
+        ''' Write the grid to a file (usually `grid.out`) using
+        `PlutoGridWriter.write_to()`. '''
         writer = PlutoGridWriter()
         writer.write_to(self, filename)
 
@@ -214,6 +216,8 @@ class PlutoGridReader():
         raise ValueError(msg)
 
     def read(self):
+        ''' Read the `{data_dir}/grid.out` file and return a PlutoGrid object.
+        '''
         dimension_builders = []
         current_dimension_builder = None
         with open(self._grid_out_fname, 'r') as f:
@@ -272,6 +276,8 @@ class PlutoGridReader():
 class PlutoGridWriter():
     ''' Write a grid.out file '''
     def to_string(self, grid):
+        ''' Convert a PlutoGrid to a string that can later be written to a
+        file (usually `grid.out`). '''
         now = datetime.datetime.now()
         string = ('# ******************************************************\n'
                   '# PLUTO 4.3 Grid File\n'
@@ -291,6 +297,7 @@ class PlutoGridWriter():
         return string
 
     def write_to(self, grid, filename):
+        ''' Write a PlutoGrid to a file (usually `grid.out`). '''
         with open(filename, 'w') as f:
             f.write(self.to_string(grid))
 
@@ -312,8 +319,7 @@ class PlutoIni(configparser.ConfigParser):
 
 
 class PlutoDefinitions(dict):
-    ''' Represent PLUTO `definitions.h` file.
-    '''
+    ''' Represent PLUTO `definitions.h` file. '''
     def __init__(self, ini_dir):
         ''' Parse and store PLUTO `definitions.h` file
 
@@ -756,6 +762,8 @@ class DblVarFile():
         self.endianness = endianness
 
     def to_string(self):
+        ''' Convert to a string that can later be written to a file (usually
+        `dbl.out`). '''
         var_names_str = ' '.join(self.var_names)
         string = ''
         for i, (t, Dt, ns) in enumerate(zip(self.t, self.Dt, self.ns_values)):
@@ -766,6 +774,7 @@ class DblVarFile():
         return string
 
     def write_to(self, filename):
+        ''' Write to a file (usually `dbl.out`). '''
         with open(filename, 'w') as f:
             f.write(self.to_string())
 
@@ -775,12 +784,34 @@ class DblWriter():
 
     def write_to(self, dataset, data_dir,
                  file_type='single_file'):
+        ''' Write a PLUTO dataset to dbl files.
+
+        Parameters
+        ==========
+        dataset : PlutoDataset
+            The dataset to write
+        data_dir : str
+            The directory to which the dbl files will be written.
+            If it does not exist, it will be created.
+        file_type : str (default: single_file)
+            Each snapshot can be saved either as a single file containing all
+            variables (`single_file`), or as one file per variable
+            (`multiple_files`).
+
+        This function will create the following files:
+            - `{data_dir}/dbl.out`
+            - `{data_dir}/grid.out`
+            - `{data_dir}/data.{i}.dbl` if passed `single_file`,
+              or `{data_dir}/{var_name}.{i}.dbl` if passed `multiple_files`,
+              where `i` is the id of each snapshot, and `var_name` the name of
+              each variable in each snapshot.
+        '''
 
         if file_type not in ('single_file', 'multiple_files'):
             raise ValueError(f'unsupported file_type value: {file_type}')
 
         if not os.path.isdir(data_dir):
-            os.mkdir(data_dir)
+            os.makedirs(data_dir)
 
         var_file = DblVarFile(
             dataset.t,
