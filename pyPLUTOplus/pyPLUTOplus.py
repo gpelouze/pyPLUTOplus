@@ -959,7 +959,9 @@ class DblWriter():
             file_type=file_type,
             endianness='little',
             )
-        var_file.write_to(f'{data_dir}/dbl.out')
+        filename = f'{data_dir}/dbl.out'
+        print('Writing var file: ', filename)
+        var_file.write_to(filename)
 
         grid = PlutoGrid(
             dataset.definitions['DIMENSIONS'],
@@ -968,7 +970,9 @@ class DblWriter():
             dataset.x2,
             dataset.x3,
             )
-        grid.write_to(f'{data_dir}/grid.out')
+        filename = f'{data_dir}/grid.out'
+        print('Writing grid file:', filename)
+        grid.write_to(filename)
 
         for ns in dataset.ns_values:
             data = self.get_step_data(dataset, ns)
@@ -1008,5 +1012,5 @@ class DblWriter():
         '''
         # cast to little-endian float64, ie. double precision
         array = array.astype('<f8')
-        print('Writing Data file :', filename)
+        print('Writing data file:', filename)
         array.tofile(filename)
