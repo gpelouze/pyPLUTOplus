@@ -690,6 +690,11 @@ class PlutoDataset():
         return np.array([self.get_step(i).get_var(varname)
                          for i in self.ns_values])
 
+    def save_dbl(self, data_dir):
+        ''' Save as dbl files. '''
+        writer = DblWriter()
+        writer.write_to(self, data_dir)
+
     @property
     def Dt(self):
         return np.array([sd.Dt for sd in self._step_data])
@@ -851,12 +856,14 @@ class DblDataset(PlutoDataset):
                        f'expected {expected_shape}, got {arr.shape}')
                 raise ValueError(msg)
 
-    def set_data(self):
-        pass
-
     def create_step_data(self):
         step_data = DblStepData()
         return step_data
+
+    def save_dbl(self, data_dir):
+        ''' Save as dbl files. '''
+        writer = DblWriter()
+        writer.write_to(self, data_dir)
 
 
 class DblVarFile():
