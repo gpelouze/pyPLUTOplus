@@ -545,6 +545,11 @@ class PlutoUnits():
         return self.UNIT_DENSITY / CONST.amu
 
     @property
+    def magnetic_field(self):
+        ''' magnetic field in G '''
+        return np.sqrt(4*CONST.PI*self.UNIT_DENSITY*self.UNIT_VELOCITY**2)
+
+    @property
     def mass(self):
         ''' mass in g '''
         return self.UNIT_DENSITY * self.UNIT_LENGTH**3
