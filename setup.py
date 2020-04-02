@@ -7,7 +7,7 @@ with open('requirements.txt', 'r') as f:
 
 setuptools.setup(
     name='pyPLUTOplus',
-    version='2020.1.13',
+    version='2020.4.2',
     author='Gabriel Pelouze',
     author_email='gabriel.pelouze@kuleuven.be',
     description='Additions to pyPLUTO',
