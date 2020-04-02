@@ -662,6 +662,12 @@ class PlutoDataset():
         if ns_values is not None:
             self.last_ns = None
             self.ns_values = ns_values
+            # replace negative values
+            sim_last_ns = self.nlast_info['nlast']
+            self.ns_values = [
+                sim_last_ns + ns + 1 if ns < 0
+                else ns
+                for ns in self.ns_values]
         else:
             if last_ns is None:
                 last_ns = self.nlast_info['nlast']
