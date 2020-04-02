@@ -870,7 +870,8 @@ class DblDataset(PlutoDataset):
         # ensure there are as many coordinates as dimensions and time
         if len(coordinates) != n_dimensions + 1:
             msg = (f'invalid number of coordinates: '
-                   f'expected {n_dimensions}, got {len(coordinates)}')
+                   f'got {len(coordinates)}, but expected {n_dimensions + 1} '
+                   f'(one for time, and one for each dimension)')
             raise ValueError(msg)
         # ensure that the shape of each array in data matches that of the
         # coordinates
