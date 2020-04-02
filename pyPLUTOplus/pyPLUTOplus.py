@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 import configparser
+import contextlib
 import datetime
 import os
 import re
@@ -649,6 +650,13 @@ class PlutoDataset():
             raise NotADirectoryError(
                 f'Data dir is not a directory: {self.data_dir}')
 
+        # load nlast_info
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            self.nlast_info = pp.nlast_info(
+                w_dir=self.data_dir,
+                datatype=self.datatype)
+
+        # determine last_ns and ns_values
         if (ns_values is not None) and (last_ns is not None):
             raise ValueError('cannot set both ns_values and last_ns')
         if ns_values is not None:
@@ -656,10 +664,7 @@ class PlutoDataset():
             self.ns_values = ns_values
         else:
             if last_ns is None:
-                nlast_info = pp.nlast_info(
-                    w_dir=self.data_dir,
-                    datatype=self.datatype)
-                last_ns = nlast_info['nlast']
+                last_ns = self.nlast_info['nlast']
             self.last_ns = last_ns
             self.ns_values = np.arange(0, self.last_ns+1)
 
