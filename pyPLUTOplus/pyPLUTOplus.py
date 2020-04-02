@@ -716,9 +716,12 @@ class PlutoDataset():
         return np.array([sd.get_var(varname) for sd in self._step_data])
 
     def save_dbl(self, data_dir):
-        ''' Save as dbl files. '''
+        ''' Save as dbl files.
+
+        **kwargs are passed to DblWriter.write_to()
+        '''
         writer = DblWriter()
-        writer.write_to(self, data_dir)
+        writer.write_to(self, data_dir, **kwargs)
 
     @property
     def Dt(self):
@@ -886,10 +889,13 @@ class DblDataset(PlutoDataset):
         step_data = DblStepData()
         return step_data
 
-    def save_dbl(self, data_dir):
-        ''' Save as dbl files. '''
+    def save_dbl(self, data_dir, **kwargs):
+        ''' Save as dbl files.
+
+        **kwargs are passed to DblWriter.write_to()
+        '''
         writer = DblWriter()
-        writer.write_to(self, data_dir)
+        writer.write_to(self, data_dir, **kwargs)
 
 
 class DblVarFile():
