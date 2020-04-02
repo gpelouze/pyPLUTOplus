@@ -589,7 +589,7 @@ class PlutoUnits():
 class PlutoDataset():
     def __init__(self, ini_dir, data_dir=None, datatype=None, level=0,
                  x1range=None, x2range=None, x3range=None,
-                 last_ns=None, load_data=True):
+                 ns_values=None, last_ns=None, load_data=True):
         ''' Time series of PLUTO data
 
         Parameters
@@ -604,9 +604,13 @@ class PlutoDataset():
         datatype, level, x1range, x2range, x3range :
             Passed to pyPLUTO.pload and pyPLUTO.nlast_info.
             See pyPLUTO.pload documentation for more info.
+        ns_values : list of int, or None
+            Step numbers of the data files to include in the dataset.
+            If None, load all data files up to last_ns (see next).
         last_ns : int or None (default: None)
             Step number of the last data file to include in the movie.
-            If None, this is determined by pyPLUTO.nlast_info.
+            If None, all data files are loaded (last_ns is then determined by
+            pyPLUTO.nlast_info).
         load_data : bool (default: True)
             If True, load the data during init
         '''
@@ -645,13 +649,19 @@ class PlutoDataset():
             raise NotADirectoryError(
                 f'Data dir is not a directory: {self.data_dir}')
 
-        self.last_ns = last_ns
-        if self.last_ns is None:
-            nlast_info = pp.nlast_info(
-                w_dir=self.data_dir,
-                datatype=self.datatype)
-            self.last_ns = nlast_info['nlast']
-        self.ns_values = np.arange(0, self.last_ns+1)
+        if (ns_values is not None) and (last_ns is not None):
+            raise ValueError('cannot set both ns_values and last_ns')
+        if ns_values is not None:
+            self.last_ns = None
+            self.ns_values = ns_values
+        else:
+            if last_ns is None:
+                nlast_info = pp.nlast_info(
+                    w_dir=self.data_dir,
+                    datatype=self.datatype)
+                last_ns = nlast_info['nlast']
+            self.last_ns = last_ns
+            self.ns_values = np.arange(0, self.last_ns+1)
 
         self._step_data= []
         if load_data:
@@ -692,8 +702,7 @@ class PlutoDataset():
 
     def get_var(self, varname):
         ''' Get array of a variable at all time steps '''
-        return np.array([self.get_step(i).get_var(varname)
-                         for i in self.ns_values])
+        return np.array([sd.get_var(varname) for sd in self._step_data])
 
     def save_dbl(self, data_dir):
         ''' Save as dbl files. '''
