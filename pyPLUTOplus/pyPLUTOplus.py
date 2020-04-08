@@ -697,15 +697,13 @@ class PlutoDataset():
             )
 
     def _update_vars(self):
-        ''' Update variable names
-
-        The list of var names is the union of the var names from all step files
-        '''
-        self.vars = set()
+        ''' Update variable names '''
+        self.vars = self._step_data[0].vars
+        # All step files should have the same variables list.
+        # Use the first one and verify that it is the case.
         for this_step_data in self._step_data:
-            for v in this_step_data.vars:
-                self.vars.add(v)
-        self.vars = list(self.vars)
+            if this_step_data.vars != self.vars:
+                raise ValueError('inconsistent vars at different steps')
 
     def get_step(self, i):
         ''' Get pyPLUTO pload object for step i '''
