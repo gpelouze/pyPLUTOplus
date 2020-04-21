@@ -951,7 +951,7 @@ class DblWriter():
     ''' Rudimentary .dbl files writer '''
 
     def write_to(self, dataset, data_dir,
-                 file_type='single_file'):
+                 file_type='single_file', endianness='little'):
         ''' Write a PLUTO dataset to dbl files.
 
         Parameters
@@ -965,6 +965,8 @@ class DblWriter():
             Each snapshot can be saved either as a single file containing all
             variables (`single_file`), or as one file per variable
             (`multiple_files`).
+        endianness : str (default: 'little')
+            Endianness of the dbl file ('little' or 'big').
 
         This function will create the following files:
             - `{data_dir}/dbl.out`
@@ -987,7 +989,7 @@ class DblWriter():
             dataset.ns_values,
             dataset.vars,
             file_type=file_type,
-            endianness='little',
+            endianness=endianness,
             )
         filename = f'{data_dir}/dbl.out'
         print('Writing var file: ', filename)
@@ -1009,12 +1011,12 @@ class DblWriter():
             if file_type == 'single_file':
                 filename = f'{data_dir}/data.{ns:04d}.dbl'
                 data = np.array(data)
-                self.write_array(data, filename)
+                self.write_array(data, filename, endianness)
             elif file_type == 'multiple_files':
                 for nv, varname in enumerate(dataset.vars):
                     filename = f'{data_dir}/{varname}.{ns:04d}.dbl'
                     var_data = data[nv]
-                    self.write_array(var_data, filename)
+                    self.write_array(var_data, filename, endianness)
 
     def get_step_data(self, dataset, ns):
         ''' Get the data for a given step of the dataset.
@@ -1030,7 +1032,7 @@ class DblWriter():
         data = [step_dataset.get_var(var) for var in step_dataset.vars]
         return data
 
-    def write_array(self, array, filename):
+    def write_array(self, array, filename, endianness):
         ''' Write a numpy array to a binary file.
 
         Parameters
@@ -1040,7 +1042,13 @@ class DblWriter():
         filename : str
             Name of the file where to write the data
         '''
+        if endianness == 'little':
+            endian = '<'
+        elif endianness == 'big':
+            endian = '>'
+        else:
+            raise ValueError(f'unknown endianness: {self.endianness}')
         # cast to little-endian float64, ie. double precision
-        array = array.astype('<f8')
+        array = array.astype(f'{endian}f8')
         print('Writing data file:', filename)
         array.tofile(filename)
