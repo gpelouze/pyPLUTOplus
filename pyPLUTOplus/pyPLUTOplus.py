@@ -1049,6 +1049,7 @@ class DblWriter():
         else:
             raise ValueError(f'unknown endianness: {self.endianness}')
         # cast to little-endian float64, ie. double precision
+        array = array.T
         array = array.astype(f'{endian}f8')
         print('Writing data file:', filename)
         array.tofile(filename)
