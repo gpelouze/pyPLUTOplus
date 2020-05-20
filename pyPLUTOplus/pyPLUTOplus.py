@@ -9,6 +9,8 @@ import re
 
 import numpy as np
 import pyPLUTO as pp
+import scipy.interpolate as sint
+import tqdm
 
 
 class pload(pp.pload):
@@ -720,6 +722,83 @@ class PlutoDataset():
         '''
         writer = DblWriter()
         writer.write_to(self, data_dir, **kwargs)
+
+    def _reshape_step(self, sd, new_coordinates):
+        ''' Reshape pyPLUTO.pload object (used by .reshape()) '''
+
+        new_x1, new_x2, new_x3 = new_coordinates
+        old_x1, old_x2, old_x3 = sd.x1, sd.x2, sd.x3
+
+        sd.x1 = new_x1
+        sd.x2 = new_x2
+        sd.x3 = new_x3
+
+        sd.n1 = len(new_x1)
+        sd.n2 = len(new_x2)
+        sd.n3 = len(new_x3)
+
+        sd.irange = list(range(sd.n1))
+        sd.jrange = list(range(sd.n2))
+        sd.krange = list(range(sd.n3))
+
+        if self.ndim == 1:
+            sd.nshp = (sd.n1, )
+            self.x1r = None
+        elif self.ndim == 2:
+            sd.nshp = (sd.n1, sd.n2)
+            self.x1r = None
+            self.x2r = None
+        elif self.ndim == 3:
+            sd.nshp = (sd.n1, sd.n2, sd.n3)
+            self.x1r = None
+            self.x2r = None
+            self.x3r = None
+        else:
+            raise ValueError(f'invalid ndim: {self.ndim}')
+
+        for varname in self.vars:
+            data = sd.__getattribute__(varname)
+            if self.ndim == 1:
+                new_data = sint.interp1d(old_x1, data)(new_x1)
+            elif self.ndim == 2:
+                new_data = sint.interp2d(old_x2, old_x1, data)(new_x2, new_x1)
+            elif self.ndim == 3:
+                new_points = np.array(np.meshgrid(new_x1, new_x2, new_x3)).T
+                new_data = sint.interpn((old_x1, old_x2, old_x3), data, new_points)
+            else:
+                raise ValueError(f'invalid ndim: {self.ndim}')
+            sd.__setattr__(varname, new_data)
+
+    def reshape(self, new_shape):
+        ''' Reshape dataset spatial coordinates
+
+        Parameters
+        ==========
+        new_shape : tuple of int
+            New shape for each axis of the dataset.
+            This tuple must contain as many elements as there are dimensions in
+            the dataset (as set in self.definitions['DIMENSIONS']).
+
+        Example
+        =======
+        Reshape a 2D dataset such that x1 has 32 cells and x2 has 64:
+        >>> self.reshape((32, 64))
+
+        '''
+        if len(new_shape) != self.ndim:
+            raise ValueError(f'invalid new_shape size '
+                             f'(expected {self.ndim}, got {len(new_shape)})')
+
+        new_coordinates = [self.x1, self.x2, self.x3]
+        for i, new_n in enumerate(new_shape):
+            new_coordinates[i] = np.linspace(
+                new_coordinates[i].min(),
+                new_coordinates[i].max(),
+                new_n,
+                )
+
+        for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
+            self._reshape_step(sd, new_coordinates)
 
     @property
     def Dt(self):
