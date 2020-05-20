@@ -745,6 +745,10 @@ class PlutoDataset():
     def x3(self):
         return self.get_step(0).x3
 
+    @property
+    def ndim(self):
+        return self.definitions['DIMENSIONS']
+
     def __getitem__(self, item):
         ''' Access step or var
 
