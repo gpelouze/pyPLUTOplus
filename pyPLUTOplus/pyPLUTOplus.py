@@ -825,6 +825,18 @@ class PlutoDataset():
         return self.get_step(0).x3
 
     @property
+    def n1(self):
+        return self.get_step(0).n1
+
+    @property
+    def n2(self):
+        return self.get_step(0).n2
+
+    @property
+    def n3(self):
+        return self.get_step(0).n3
+
+    @property
     def ndim(self):
         return self.definitions['DIMENSIONS']
 
