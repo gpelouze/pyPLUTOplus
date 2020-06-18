@@ -800,6 +800,14 @@ class PlutoDataset():
         for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
             self._reshape_step(sd, new_coordinates)
 
+    def add_var(self, varname, arr):
+        for sd, snapshot_arr in zip(self._step_data, arr):
+            if hasattr(sd, varname):
+                raise ValueError(f'variable already exists: {varname}')
+            sd.__setattr__(varname, snapshot_arr)
+            sd.vars.append(varname)
+        self._update_vars()
+
     @property
     def Dt(self):
         return np.array([sd.Dt for sd in self._step_data])
