@@ -539,7 +539,7 @@ class PlutoUnits():
 
     @property
     def energy_density(self):
-        ''' energy density in erg cm-2 '''
+        ''' energy density in erg cm-3 '''
         return self.UNIT_DENSITY * self.UNIT_VELOCITY**2
 
     @property
