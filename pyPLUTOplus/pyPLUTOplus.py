@@ -160,6 +160,10 @@ class PlutoGrid():
     def all_dimensions(self):
         return self.x1, self.x2, self.x3
 
+    @property
+    def N(self):
+        return np.product([x.N for x in self.active_dimensions])
+
     def _init_dimension(self, x):
         if isinstance(x, PlutoGridDimension):
             return x
