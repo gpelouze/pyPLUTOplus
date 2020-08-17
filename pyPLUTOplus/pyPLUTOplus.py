@@ -7,10 +7,17 @@ import datetime
 import os
 import re
 
+import astropy.units as u
+import astropy.constants as c
 import numpy as np
 import pyPLUTO as pp
 import scipy.interpolate as sint
 import tqdm
+
+
+# astropy.units shortcuts
+u.Q = u.Quantity
+u.U = u.Unit
 
 
 class pload(pp.pload):
@@ -48,6 +55,37 @@ class CONST():
     Rsun   = 6.96e10            # Solar Radius
     sigma  = 5.67051e-5         # Stephan Boltmann constant
     sigmaT = 6.6524e-25         # Thomson Cross section
+
+
+class CONSTAstropy():
+    ''' PLUTO constants: CONST_* values as defined in pluto.h with astropy
+    units support '''
+    AH     = 1.008 * u.U('')                       # Atomic weight of Hydrogen
+    AHe    = 4.004 * u.U('')                       # Atomic weight of Helium
+    AZ     = 30.0 * u.U('')                        # Mean atomic weight of heavy elements
+    amu    = 1.66053886e-24 * u.U('g')             # Atomic mass unit
+    au     = 1.49597892e13 * u.U('cm')             # Astronomical unit
+    c      = 2.99792458e10 * u.U('cm s-1')         # Speed of Light
+    e      = 4.80320425e-10 * u.U('Fr')            # Elementary (proton) charge
+    eV     = 1.602176463158e-12 * u.U('erg')       # Electron Volt in erg
+    G      = 6.6726e-8 * u.U('cm3 g-1 s-2')        # Gravitational Constant
+    h      = 6.62606876e-27 * u.U('erg s')         # Planck Constant
+    kB     = 1.3806505e-16 * u.U('erg K-1')        # Boltzmann constant
+    ly     = 0.9461e18 * u.U('cm')                 # Light year
+    mp     = 1.67262171e-24 * u.U('g')             # Proton mass
+    mn     = 1.67492728e-24 * u.U('g')             # Neutron mass
+    me     = 9.1093826e-28 * u.U('g')              # Electron mass
+    mH     = 1.6733e-24 * u.U('g')                 # Hydrogen atom mass
+    Msun   = 2.e33 * u.U('g')                      # Solar Mass
+    Mearth = 5.9736e27 * u.U('g')                  # Earth Mass
+    NA     = 6.0221367e23 * u.U('')                # Avogadro Contant
+    pc     = 3.0856775807e18 * u.U('cm')           # Parsec
+    PI     = 3.14159265358979                      # \f$ \pi \f$
+    Rearth = 6.378136e8 * u.U('cm')                # Earth Radius
+    Rgas   = 8.3144598e7 * u.U('erg K-1 mol-1')    # Perfect gas constant
+    Rsun   = 6.96e10 * u.U('cm')                   # Solar Radius
+    sigma  = 5.67051e-5 * u.U('erg s-1 K-4 cm-2')  # Stephan Boltmann constant
+    sigmaT = 6.6524e-25 * u.U('cm2')               # Thomson Cross section
 
 
 class PlutoGridDimension():
@@ -580,6 +618,111 @@ class PlutoUnits():
     def time(self):
         ''' time in s '''
         return self.UNIT_LENGTH / self.UNIT_VELOCITY
+
+    def __repr__(self):
+        s = ('PlutoUnits('
+             'length={length:.3g}, '
+             'velocity={velocity:.3g}, '
+             'density={density:.3g})')
+        s = s.format(
+            length=self.length,
+            velocity=self.velocity,
+            density=self.density)
+        return s
+
+
+class PlutoUnitsAstropy():
+    ''' Code units as defined in `definitions.h` with astropy units support.
+
+    Contains the PLUTO base units (length, velocity, and density), as well as derived units such as time or mass.
+
+    Example
+    =======
+
+    >>> p = PlutoUnits('./my_sim/')
+    >>> print(p.length) # prints the value of UNIT_LENGTH in cgs
+    >>> print(p.time) # prints UNIT_LENGTH / UNIT_VELOCITY in cgs
+    '''
+
+    def __init__(self, ini_dir):
+        ''' Parse and store the code units defined in `{ini_dir}/definitions.h`.
+
+        Parameters
+        ==========
+        ini_dir : str
+            Directory containing a valid PLUTO `definitions.h`.
+        '''
+        self.ini_dir = ini_dir
+        self._defs = PlutoDefinitions(self.ini_dir)
+        self.UNIT_DENSITY = self._defs.get_number('UNIT_DENSITY') * u.U('g cm-3')
+        self.UNIT_LENGTH = self._defs.get_number('UNIT_LENGTH') * u.U('cm')
+        self.UNIT_VELOCITY = self._defs.get_number('UNIT_VELOCITY') * u.U('cm s-1')
+
+    @property
+    def _MU(self):
+        ''' Mean molecular weight computed as in PLUTO's MeanMolecularWeight
+        function (Src/mean_mol_weight.c).
+
+        Only COOLING == NO or TABULATED are supported.
+        '''
+        cooling = self._defs.get('COOLING')
+        if cooling in (False, 'TABULATED'):
+            H_MASS_FRAC = self._defs.get_number('H_MASS_FRAC')
+            He_MASS_FRAC = self._defs.get_number('He_MASS_FRAC')
+            Z_MASS_FRAC = self._defs.get_number('Z_MASS_FRAC')
+            FRAC_He = (He_MASS_FRAC/CONSTAstropy.AHe*CONSTAstropy.AH/H_MASS_FRAC)
+            FRAC_Z = (Z_MASS_FRAC /CONSTAstropy.AZ *CONSTAstropy.AH/H_MASS_FRAC)
+            return ((CONSTAstropy.AH + FRAC_He*CONSTAstropy.AHe +
+            FRAC_Z*CONSTAstropy.AZ) /
+                    (2.0 + FRAC_He + FRAC_Z*(1.0 + CONSTAstropy.AZ*0.5))) * u.U('')
+
+        else:
+            raise ValueError(f"Can't compute mu for {cooling} cooling.")
+
+
+    @property
+    def density(self):
+        return self.UNIT_DENSITY.to('g cm-3')
+
+    @property
+    def length(self):
+        return self.UNIT_LENGTH.to('cm')
+
+    @property
+    def velocity(self):
+        return self.UNIT_VELOCITY.to('cm s-1')
+
+    @property
+    def energy_density(self):
+        return (self.UNIT_DENSITY * self.UNIT_VELOCITY**2).to('erg cm-3')
+
+    @property
+    def number_density(self):
+        return (self.UNIT_DENSITY / CONSTAstropy.amu).to('cm-3')
+
+    @property
+    def magnetic_field(self):
+        return np.sqrt(4*CONSTAstropy.PI*self.UNIT_DENSITY*self.UNIT_VELOCITY**2).value * u.U('G')
+
+    @property
+    def mass(self):
+        return (self.UNIT_DENSITY * self.UNIT_LENGTH**3).to('g')
+
+    @property
+    def power_density(self):
+        return (self.UNIT_DENSITY * self.UNIT_VELOCITY**3 / self.UNIT_LENGTH).to('erg s-1 cm-3')
+
+    @property
+    def pressure(self):
+        return (self.UNIT_DENSITY * self.UNIT_VELOCITY**2).to('dyn cm-2')
+
+    @property
+    def temperature(self):
+        return (self.UNIT_VELOCITY**2*CONSTAstropy.amu/CONSTAstropy.kB).to('K')
+
+    @property
+    def time(self):
+        return (self.UNIT_LENGTH / self.UNIT_VELOCITY).to('s')
 
     def __repr__(self):
         s = ('PlutoUnits('
