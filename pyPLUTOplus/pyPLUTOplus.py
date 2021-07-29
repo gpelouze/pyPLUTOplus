@@ -870,15 +870,20 @@ class PlutoDataset():
         writer = DblWriter()
         writer.write_to(self, data_dir, **kwargs)
 
-    def _reshape_step(self, sd, new_coordinates):
+    def _reshape_step(self, sd, new_x, new_xr):
         ''' Reshape pyPLUTO.pload object (used by .reshape()) '''
 
-        new_x1, new_x2, new_x3 = new_coordinates
+        new_x1, new_x2, new_x3 = new_x
+        new_x1r, new_x2r, new_x3r = new_xr
         old_x1, old_x2, old_x3 = sd.x1, sd.x2, sd.x3
 
         sd.x1 = new_x1
         sd.x2 = new_x2
         sd.x3 = new_x3
+
+        sd.x1r = new_x1r
+        sd.x2r = new_x2r
+        sd.x3r = new_x3r
 
         sd.n1 = len(new_x1)
         sd.n2 = len(new_x2)
@@ -890,16 +895,10 @@ class PlutoDataset():
 
         if self.ndim == 1:
             sd.nshp = (sd.n1, )
-            self.x1r = None
         elif self.ndim == 2:
             sd.nshp = (sd.n1, sd.n2)
-            self.x1r = None
-            self.x2r = None
         elif self.ndim == 3:
             sd.nshp = (sd.n1, sd.n2, sd.n3)
-            self.x1r = None
-            self.x2r = None
-            self.x3r = None
         else:
             raise ValueError(f'invalid ndim: {self.ndim}')
 
@@ -936,16 +935,16 @@ class PlutoDataset():
             raise ValueError(f'invalid new_shape size '
                              f'(expected {self.ndim}, got {len(new_shape)})')
 
-        new_coordinates = [self.x1, self.x2, self.x3]
+        new_x = [self.x1, self.x2, self.x3]
+        new_xr = [self.x1r, self.x2r, self.x3r]  # cell edges, size nx+1
         for i, new_n in enumerate(new_shape):
-            new_coordinates[i] = np.linspace(
-                new_coordinates[i].min(),
-                new_coordinates[i].max(),
-                new_n,
-                )
+            xmin = new_xr[i].min()
+            xmax = new_xr[i].max()
+            new_xr[i] = np.linspace(xmin, xmax, new_n+1)
+            new_x[i] = (new_xr[i][1:] + new_xr[i][:-1]) / 2
 
         for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
-            self._reshape_step(sd, new_coordinates)
+            self._reshape_step(sd, new_x, new_xr)
 
     def add_var(self, varname, arr):
         for sd, snapshot_arr in zip(self._step_data, arr):
