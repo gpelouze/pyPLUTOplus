@@ -980,6 +980,18 @@ class PlutoDataset():
         return self.get_step(0).x3
 
     @property
+    def x1r(self):
+        return self.get_step(0).x1r
+
+    @property
+    def x2r(self):
+        return self.get_step(0).x2r
+
+    @property
+    def x3r(self):
+        return self.get_step(0).x3r
+
+    @property
     def n1(self):
         return self.get_step(0).n1
 
