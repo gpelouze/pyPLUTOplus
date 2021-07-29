@@ -946,6 +946,60 @@ class PlutoDataset():
         for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
             self._reshape_step(sd, new_x, new_xr)
 
+    def _flip_coordinate_step(self, sd, dim_n):
+        if dim_n == 0:
+            sd.x1 = - sd.x1[::-1]
+            sd.x1r = - sd.x1r[::-1]
+        elif dim_n == 1:
+            sd.x2 = - sd.x2[::-1]
+            sd.x2r = - sd.x2r[::-1]
+        elif dim_n == 2:
+            sd.x3 = - sd.x3[::-1]
+            sd.x3r = - sd.x3r[::-1]
+        else:
+            raise ValueError(f'invalid dim_n: {dim_n}')
+
+        for varname in self.vars:
+            data = sd.__getattribute__(varname)
+            if dim_n == 0:
+                new_data = data[::-1]
+                if varname in ('vx1', 'Bx1'):
+                    new_data *= -1
+            elif dim_n == 1:
+                new_data = data[:, ::-1]
+                if varname in ('vx2', 'Bx2'):
+                    new_data *= -1
+            elif dim_n == 2:
+                new_data = data[:, :, ::-1]
+                if varname in ('vx3', 'Bx3'):
+                    new_data *= -1
+            else:
+                raise ValueError(f'invalid dim_n: {dim_n}')
+            sd.__setattr__(varname, new_data)
+
+    def flip_coordinate(self, dim, translate=0):
+        ''' Flip the direction of coordinates along a given dimension
+
+        This is done by flipping the coordinate sign and inverting direction of
+        coordinate and var arrays (eg. `x2` becomes `-x2[::-1]` and
+        `rho` becomes `rho[:, ::-1, :]`).
+
+        Parameters
+        ==========
+        dim : str ('x1', 'x2', or 'x3')
+            Dimension for which to flip the coordinates direction
+        '''
+        dim_n_conv = {'x1': 0, 'x2': 1, 'x3': 2}
+        if dim not in dim_n_conv:
+            raise ValueError(f'unknown dimension: {dim}')
+        dim_n = dim_n_conv[dim]
+        if dim_n >= self.ndim:
+            raise ValueError(f'cannot flip dimension {dim} '
+                             f'on {self.ndim}D dataset')
+
+        for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
+            self._flip_coordinate_step(sd, dim_n)
+
     def add_var(self, varname, arr):
         for sd, snapshot_arr in zip(self._step_data, arr):
             if hasattr(sd, varname):
