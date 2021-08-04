@@ -115,6 +115,11 @@ class PlutoGridDimension():
         ''' Coordinates of the center of each cell. '''
         return (self.xL + self.xR) / 2
 
+    @property
+    def xr(self):
+        ''' Coordinates of all cell edges. '''
+        return np.hstack((self.xL, [self.xR[-1]]))
+
     def iter_cells(self):
         ''' Returns an iterator which yields the indice and the left, center,
         and right coordinate of each grid cell. '''
