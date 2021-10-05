@@ -115,6 +115,11 @@ class PlutoGridDimension():
         ''' Coordinates of the center of each cell. '''
         return (self.xL + self.xR) / 2
 
+    @property
+    def xr(self):
+        ''' Coordinates of all cell edges. '''
+        return np.hstack((self.xL, [self.xR[-1]]))
+
     def iter_cells(self):
         ''' Returns an iterator which yields the indice and the left, center,
         and right coordinate of each grid cell. '''
@@ -874,15 +879,20 @@ class PlutoDataset():
         writer = DblWriter()
         writer.write_to(self, data_dir, **kwargs)
 
-    def _reshape_step(self, sd, new_coordinates):
+    def _reshape_step(self, sd, new_x, new_xr):
         ''' Reshape pyPLUTO.pload object (used by .reshape()) '''
 
-        new_x1, new_x2, new_x3 = new_coordinates
+        new_x1, new_x2, new_x3 = new_x
+        new_x1r, new_x2r, new_x3r = new_xr
         old_x1, old_x2, old_x3 = sd.x1, sd.x2, sd.x3
 
         sd.x1 = new_x1
         sd.x2 = new_x2
         sd.x3 = new_x3
+
+        sd.x1r = new_x1r
+        sd.x2r = new_x2r
+        sd.x3r = new_x3r
 
         sd.n1 = len(new_x1)
         sd.n2 = len(new_x2)
@@ -894,16 +904,10 @@ class PlutoDataset():
 
         if self.ndim == 1:
             sd.nshp = (sd.n1, )
-            self.x1r = None
         elif self.ndim == 2:
             sd.nshp = (sd.n1, sd.n2)
-            self.x1r = None
-            self.x2r = None
         elif self.ndim == 3:
             sd.nshp = (sd.n1, sd.n2, sd.n3)
-            self.x1r = None
-            self.x2r = None
-            self.x3r = None
         else:
             raise ValueError(f'invalid ndim: {self.ndim}')
 
@@ -940,16 +944,72 @@ class PlutoDataset():
             raise ValueError(f'invalid new_shape size '
                              f'(expected {self.ndim}, got {len(new_shape)})')
 
-        new_coordinates = [self.x1, self.x2, self.x3]
+        new_x = [self.x1, self.x2, self.x3]
+        new_xr = [self.x1r, self.x2r, self.x3r]  # cell edges, size nx+1
         for i, new_n in enumerate(new_shape):
-            new_coordinates[i] = np.linspace(
-                new_coordinates[i].min(),
-                new_coordinates[i].max(),
-                new_n,
-                )
+            xmin = new_xr[i].min()
+            xmax = new_xr[i].max()
+            new_xr[i] = np.linspace(xmin, xmax, new_n+1)
+            new_x[i] = (new_xr[i][1:] + new_xr[i][:-1]) / 2
 
         for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
-            self._reshape_step(sd, new_coordinates)
+            self._reshape_step(sd, new_x, new_xr)
+
+    def _flip_coordinate_step(self, sd, dim_n, trans):
+        if dim_n == 0:
+            sd.x1 = - sd.x1[::-1] + trans
+            sd.x1r = - sd.x1r[::-1] + trans
+        elif dim_n == 1:
+            sd.x2 = - sd.x2[::-1] + trans
+            sd.x2r = - sd.x2r[::-1] + trans
+        elif dim_n == 2:
+            sd.x3 = - sd.x3[::-1] + trans
+            sd.x3r = - sd.x3r[::-1] + trans
+        else:
+            raise ValueError(f'invalid dim_n: {dim_n}')
+
+        for varname in self.vars:
+            data = sd.__getattribute__(varname)
+            if dim_n == 0:
+                new_data = data[::-1]
+                if varname in ('vx1', 'Bx1'):
+                    new_data *= -1
+            elif dim_n == 1:
+                new_data = data[:, ::-1]
+                if varname in ('vx2', 'Bx2'):
+                    new_data *= -1
+            elif dim_n == 2:
+                new_data = data[:, :, ::-1]
+                if varname in ('vx3', 'Bx3'):
+                    new_data *= -1
+            else:
+                raise ValueError(f'invalid dim_n: {dim_n}')
+            sd.__setattr__(varname, new_data)
+
+    def flip_coordinate(self, dim, trans=0):
+        ''' Flip the direction of coordinates along a given dimension
+
+        Parameters
+        ==========
+        dim : str ('x1', 'x2', or 'x3')
+            Dimension for which to flip the coordinates direction
+        trans : float (default: 0)
+            Translate the coordinate values by the given amount after flipping.
+
+        This function flips the coordinate sign and inverts direction of
+        coordinate and var arrays, and adds `trans` to the coordinate.
+        (eg. `x2` becomes `-x2[::-1] + trans` and `rho` becomes `rho[:, ::-1, :]`).
+        '''
+        dim_n_conv = {'x1': 0, 'x2': 1, 'x3': 2}
+        if dim not in dim_n_conv:
+            raise ValueError(f'unknown dimension: {dim}')
+        dim_n = dim_n_conv[dim]
+        if dim_n >= self.ndim:
+            raise ValueError(f'cannot flip dimension {dim} '
+                             f'on {self.ndim}D dataset')
+
+        for sd in tqdm.tqdm(self._step_data, desc='Reshaping dataset'):
+            self._flip_coordinate_step(sd, dim_n, trans)
 
     def add_var(self, varname, arr):
         for sd, snapshot_arr in zip(self._step_data, arr):
@@ -982,6 +1042,18 @@ class PlutoDataset():
     @property
     def x3(self):
         return self.get_step(0).x3
+
+    @property
+    def x1r(self):
+        return self.get_step(0).x1r
+
+    @property
+    def x2r(self):
+        return self.get_step(0).x2r
+
+    @property
+    def x3r(self):
+        return self.get_step(0).x3r
 
     @property
     def n1(self):
