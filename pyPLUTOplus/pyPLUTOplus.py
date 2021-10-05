@@ -739,7 +739,7 @@ class PlutoUnitsAstropy():
 class PlutoDataset():
     def __init__(self, ini_dir, data_dir=None, datatype=None, level=0,
                  x1range=None, x2range=None, x3range=None,
-                 ns_values=None, last_ns=None, load_data=True):
+                 ns_values=None, last_ns=None, ns_step=1, load_data=True):
         ''' Time series of PLUTO data
 
         Parameters
@@ -761,6 +761,9 @@ class PlutoDataset():
             Step number of the last data file to include in the movie.
             If None, all data files are loaded (last_ns is then determined by
             pyPLUTO.nlast_info).
+        ns_step : int (default: 1)
+            Load every n-th data file. If 1, all data files are loaded. This
+            parameter is ignored if ns_values is specified.
         load_data : bool (default: True)
             If True, load the data during init
         '''
@@ -821,7 +824,8 @@ class PlutoDataset():
             if last_ns is None:
                 last_ns = self.nlast_info['nlast']
             self.last_ns = last_ns
-            self.ns_values = np.arange(0, self.last_ns+1)
+            self.ns_step = ns_step
+            self.ns_values = np.arange(0, self.last_ns+1, self.ns_step)
 
         self._step_data= []
         if load_data:
